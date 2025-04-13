@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Movie Recommendation System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h1 class="text-center mb-4">Welcome to MovieRec</h1>
+                <p class="text-center mb-4">Discover your next favorite movie with our recommendation system.</p>
+                
+                <form method="POST" action="{{ url_for('search') }}" class="mb-4">
+                    <div class="input-group">
+                        <input type="text" name="query" class="form-control" placeholder="Search for movies...">
+                        <button class="btn btn-primary" type="submit">Search</button>
+                    </div>
+                </form>
+
+                <h3 class="mb-3">Popular Movies</h3>
+                <div class="row">
+                    {% for movie in popular_movies %}
+                    <div class="col-md-4">
+                        <div class="card movie-card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ movie.title }}</h5>
+                                <p class="card-text">
+                                    <span class="rating-stars">
+                                        {% for i in range(movie.rating|int) %}
+                                            <i class="bi bi-star-fill"></i>
+                                        {% endfor %}
+                                        {% if movie.rating % 1 >= 0.5 %}
+                                            <i class="bi bi-star-half"></i>
+                                        {% endif %}
+                                    </span>
+                                    ({{ "%.1f"|format(movie.rating) }})
+                                </p>
+                                <form method="POST" action="{{ url_for('rate_movie') }}">
+                                    <input type="hidden" name="movie_id" value="{{ movie.id }}">
+                                    <div class="btn-group" role="group">
+                                        {% for i in range(1, 6) %}
+                                            <button type="submit" name="rating" value="{{ i }}" 
+                                                    class="btn btn-outline-warning">
+                                                {{ i }}
+                                            </button>
+                                        {% endfor %}
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
