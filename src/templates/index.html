@@ -3,56 +3,322 @@
 {% block title %}Home - Movie Recommendation System{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 offset-md-2">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h1 class="text-center mb-4">Welcome to MovieRec</h1>
-                <p class="text-center mb-4">Discover your next favorite movie with our recommendation system.</p>
-                
-                <form method="POST" action="{{ url_for('search') }}" class="mb-4">
-                    <div class="input-group">
-                        <input type="text" name="query" class="form-control" placeholder="Search for movies...">
-                        <button class="btn btn-primary" type="submit">Search</button>
+<div class="container mt-5">
+    <h1 class="text-center mb-4">Welcome to Movie Recommendations</h1>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="text-center d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    
+    <!-- Search Form -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-6">
+            <form action="{{ url_for('search') }}" method="GET" class="form-inline justify-content-center" id="search-form">
+                <div class="input-group w-100">
+                    <input type="text" name="query" class="form-control" placeholder="Search for movies...">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary">Search</button>
                     </div>
-                </form>
+                </div>
+            </form>
+        </div>
+    </div>
 
-                <h3 class="mb-3">Popular Movies</h3>
-                <div class="row">
-                    {% for movie in popular_movies %}
-                    <div class="col-md-4">
-                        <div class="card movie-card">
-                            <div class="card-body">
-                                <h5 class="card-title">{{ movie.title }}</h5>
-                                <p class="card-text">
-                                    <span class="rating-stars">
-                                        {% for i in range(movie.rating|int) %}
-                                            <i class="bi bi-star-fill"></i>
-                                        {% endfor %}
-                                        {% if movie.rating % 1 >= 0.5 %}
-                                            <i class="bi bi-star-half"></i>
-                                        {% endif %}
-                                    </span>
-                                    ({{ "%.1f"|format(movie.rating) }})
-                                </p>
-                                <form method="POST" action="{{ url_for('rate_movie') }}">
-                                    <input type="hidden" name="movie_id" value="{{ movie.id }}">
-                                    <div class="btn-group" role="group">
-                                        {% for i in range(1, 6) %}
-                                            <button type="submit" name="rating" value="{{ i }}" 
-                                                    class="btn btn-outline-warning">
-                                                {{ i }}
-                                            </button>
-                                        {% endfor %}
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+    <!-- Display Options -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary active" data-view="grid">Grid View</button>
+                <button type="button" class="btn btn-outline-primary" data-view="list">List View</button>
+            </div>
+        </div>
+        <div class="col-md-6 text-right">
+            <select class="form-control w-auto float-right" id="items-per-page">
+                <option value="12">12 items per page</option>
+                <option value="24">24 items per page</option>
+                <option value="48">48 items per page</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Popular Movies -->
+    <h2 class="mb-4">Popular Movies</h2>
+    <div class="row" id="movies-container">
+        {% for movie in popular_movies %}
+        <div class="col-md-4 mb-4 movie-item">
+            <div class="card h-100">
+                {% if movie.poster_url %}
+                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
+                     data-src="{{ movie.poster_url }}" 
+                     class="card-img-top lazy" 
+                     alt="{{ movie.title }}"
+                     loading="lazy">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ movie.title }}</h5>
+                    <div class="current-rating mb-2">
+                        {% for i in range(5) %}
+                            {% if i < movie.average_rating|int %}
+                                <i class="fas fa-star text-warning"></i>
+                            {% else %}
+                                <i class="far fa-star text-warning"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="ml-2">({{ "%.1f"|format(movie.average_rating) }})</span>
                     </div>
-                    {% endfor %}
+                    
+                    <!-- Rating Form -->
+                    <form action="{{ url_for('rate_movie') }}" method="POST" class="rating-form">
+                        <input type="hidden" name="imdb_id" value="{{ movie.imdb_id }}">
+                        <input type="hidden" name="user_id" value="{{ current_user.id if current_user.is_authenticated else '' }}">
+                        <div class="rating-buttons">
+                            {% for rating in [1, 2, 3, 4, 5] %}
+                            <button type="submit" name="rating" value="{{ rating }}" 
+                                    class="btn btn-sm {% if movie.user_rating == rating %}btn-warning{% else %}btn-outline-warning{% endif %} mr-1">
+                                {{ rating }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </form>
+                    
+                    <a href="{{ url_for('movie_details', imdb_id=movie.imdb_id) }}" class="btn btn-primary mt-2">
+                        View Details
+                    </a>
                 </div>
             </div>
         </div>
+        {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center" id="pagination">
+            <!-- Pagination will be populated by JavaScript -->
+        </ul>
+    </nav>
+
+    {% if current_user is defined and current_user.is_authenticated %}
+    <div class="mt-4">
+        <h2>Your Recommendations</h2>
+        <div class="row">
+            {% for movie in recommended_movies %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    {% if movie.poster_url %}
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
+                         data-src="{{ movie.poster_url }}" 
+                         class="card-img-top lazy" 
+                         alt="{{ movie.title }}"
+                         loading="lazy">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ movie.title }}</h5>
+                        <p class="card-text">Predicted Rating: {{ "%.1f"|format(movie.predicted_rating) }}</p>
+                        <a href="{{ url_for('movie_details', imdb_id=movie.imdb_id) }}" class="btn btn-primary">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Lazy loading for images
+    const lazyImages = document.querySelectorAll('img.lazy');
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                img.src = img.dataset.src;
+                img.classList.remove('lazy');
+                observer.unobserve(img);
+            }
+        });
+    });
+
+    lazyImages.forEach(img => imageObserver.observe(img));
+
+    // View switching (grid/list)
+    const viewButtons = document.querySelectorAll('[data-view]');
+    const moviesContainer = document.getElementById('movies-container');
+    
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            if (this.dataset.view === 'list') {
+                moviesContainer.classList.add('list-view');
+                document.querySelectorAll('.movie-item').forEach(item => {
+                    item.classList.remove('col-md-4');
+                    item.classList.add('col-12');
+                });
+            } else {
+                moviesContainer.classList.remove('list-view');
+                document.querySelectorAll('.movie-item').forEach(item => {
+                    item.classList.remove('col-12');
+                    item.classList.add('col-md-4');
+                });
+            }
+        });
+    });
+
+    // Items per page handling
+    const itemsPerPageSelect = document.getElementById('items-per-page');
+    itemsPerPageSelect.addEventListener('change', function() {
+        const value = this.value;
+        const items = document.querySelectorAll('.movie-item');
+        items.forEach((item, index) => {
+            if (index < value) {
+                item.classList.remove('d-none');
+            } else {
+                item.classList.add('d-none');
+            }
+        });
+        updatePagination();
+    });
+
+    // Loading state handling
+    const forms = document.querySelectorAll('form');
+    const loadingIndicator = document.getElementById('loading-indicator');
+
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            loadingIndicator.classList.remove('d-none');
+        });
+    });
+
+    // Rating buttons hover effect
+    const ratingButtons = document.querySelectorAll('.rating-buttons button');
+    ratingButtons.forEach(button => {
+        button.addEventListener('mouseover', function() {
+            const rating = parseInt(this.value);
+            const buttons = this.parentElement.querySelectorAll('button');
+            buttons.forEach((btn, index) => {
+                if (index < rating) {
+                    btn.classList.add('btn-warning');
+                    btn.classList.remove('btn-outline-warning');
+                } else {
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-outline-warning');
+                }
+            });
+        });
+
+        button.addEventListener('mouseout', function() {
+            const buttons = this.parentElement.querySelectorAll('button');
+            const currentRating = parseInt(this.parentElement.querySelector('.btn-warning')?.value) || 0;
+            buttons.forEach((btn, index) => {
+                if (index < currentRating) {
+                    btn.classList.add('btn-warning');
+                    btn.classList.remove('btn-outline-warning');
+                } else {
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-outline-warning');
+                }
+            });
+        });
+    });
+
+    // Initialize pagination
+    function updatePagination() {
+        const itemsPerPage = parseInt(itemsPerPageSelect.value);
+        const totalItems = document.querySelectorAll('.movie-item').length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
+        
+        for (let i = 1; i <= totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (i === 1 ? ' active' : '');
+            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+            pagination.appendChild(li);
+        }
+
+        // Add page click handlers
+        document.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = parseInt(this.dataset.page);
+                const start = (page - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+                
+                document.querySelectorAll('.movie-item').forEach((item, index) => {
+                    if (index >= start && index < end) {
+                        item.classList.remove('d-none');
+                    } else {
+                        item.classList.add('d-none');
+                    }
+                });
+
+                document.querySelectorAll('.page-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                this.parentElement.classList.add('active');
+            });
+        });
+    }
+
+    // Initial pagination setup
+    updatePagination();
+});
+</script>
+
+<style>
+.list-view .card {
+    flex-direction: row;
+}
+
+.list-view .card-img-top {
+    width: 200px;
+    height: auto;
+}
+
+.lazy {
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+img:not(.lazy) {
+    opacity: 1;
+}
+
+#loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+}
+</style>
 {% endblock %} 

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}{{ movie.title }} - Movie Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Movie Details -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Movie Poster -->
+                        <div class="col-md-4">
+                            {% if movie.poster_url %}
+                            <img src="{{ movie.poster_url }}" class="img-fluid rounded" alt="{{ movie.title }} poster">
+                            {% else %}
+                            <div class="bg-light rounded p-4 text-center">
+                                <i class="bi bi-film" style="font-size: 5rem;"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Movie Information -->
+                        <div class="col-md-8">
+                            <h1 class="mb-2">{{ movie.title }} ({{ movie.year }})</h1>
+                            
+                            <!-- Ratings -->
+                            <div class="mb-3">
+                                <h5>Ratings:</h5>
+                                <p>
+                                    <strong>IMDb Rating:</strong> 
+                                    <span class="text-warning">
+                                        {% for i in range(movie.rating|int) %}
+                                            <i class="bi bi-star-fill"></i>
+                                        {% endfor %}
+                                        {% if movie.rating % 1 >= 0.5 %}
+                                            <i class="bi bi-star-half"></i>
+                                        {% endif %}
+                                    </span>
+                                    {{ "%.1f"|format(movie.rating) }} ({{ movie.votes }} votes)
+                                </p>
+                                {% if movie.local_rating is not none %}
+                                <p>
+                                    <strong>Local Rating:</strong>
+                                    <span class="text-warning">
+                                        {% for i in range(movie.local_rating|int) %}
+                                            <i class="bi bi-star-fill"></i>
+                                        {% endfor %}
+                                        {% if movie.local_rating % 1 >= 0.5 %}
+                                            <i class="bi bi-star-half"></i>
+                                        {% endif %}
+                                    </span>
+                                    {{ "%.1f"|format(movie.local_rating) }}
+                                </p>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Rate this movie -->
+                            <div class="mb-3">
+                                <h5>Rate this movie:</h5>
+                                <form method="POST" action="{{ url_for('rate_movie') }}" class="mb-3">
+                                    <input type="hidden" name="imdb_id" value="{{ movie.imdb_id }}">
+                                    <div class="btn-group" role="group">
+                                        {% for i in range(1, 6) %}
+                                            <button type="submit" name="rating" value="{{ i }}" 
+                                                    class="btn btn-outline-warning">
+                                                {{ i }}
+                                            </button>
+                                        {% endfor %}
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <!-- Movie Details -->
+                            <div class="mb-3">
+                                <p><strong>Runtime:</strong> {{ movie.runtime }} minutes</p>
+                                <p><strong>Genres:</strong> {{ movie.genres|join(', ') }}</p>
+                                <p><strong>Director:</strong> {{ movie.director|join(', ') }}</p>
+                                <p><strong>Cast:</strong> {{ movie.cast|join(', ') }}</p>
+                                <p><strong>Languages:</strong> {{ movie.languages|join(', ') }}</p>
+                                <p><strong>Countries:</strong> {{ movie.countries|join(', ') }}</p>
+                            </div>
+                            
+                            <!-- Plot -->
+                            <div class="mb-3">
+                                <h5>Plot:</h5>
+                                <p>{{ movie.plot }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Similar Movies -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h4 class="card-title mb-3">Similar Movies</h4>
+                    {% for similar in similar_movies %}
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <a href="{{ url_for('movie_details', imdb_id=similar.imdb_id) }}" class="text-decoration-none">
+                                    {{ similar.title }} ({{ similar.year }})
+                                </a>
+                            </h6>
+                            <p class="card-text">
+                                <span class="text-warning">
+                                    {% for i in range(similar.rating|int) %}
+                                        <i class="bi bi-star-fill"></i>
+                                    {% endfor %}
+                                    {% if similar.rating % 1 >= 0.5 %}
+                                        <i class="bi bi-star-half"></i>
+                                    {% endif %}
+                                </span>
+                                {{ "%.1f"|format(similar.rating) }}
+                            </p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

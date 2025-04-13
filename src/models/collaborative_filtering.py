@@ -1,9 +1,8 @@
 import numpy as np
-from typing import Tuple, List
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import List, Tuple
 
 class CollaborativeFiltering:
-    def __init__(self, n_factors: int = 50, learning_rate: float = 0.01, 
+    def __init__(self, n_factors: int = 50, learning_rate: float = 0.01,
                  regularization: float = 0.02, n_epochs: int = 20):
         """
         Initialize the collaborative filtering model.
@@ -22,84 +21,61 @@ class CollaborativeFiltering:
         self.item_factors = None
         self.movie_ids = None
         
-    def fit(self, ratings_matrix: np.ndarray, movie_ids: np.ndarray) -> None:
-        """
-        Fit the model to the ratings matrix.
-        
-        Args:
-            ratings_matrix (np.ndarray): User-item ratings matrix
-            movie_ids (np.ndarray): Array of movie IDs corresponding to columns in ratings_matrix
-        """
+    def fit(self, ratings_matrix: np.ndarray, movie_ids: List[int]) -> None:
+        """Train the model using matrix factorization"""
         n_users, n_items = ratings_matrix.shape
-        self.movie_ids = movie_ids
         
-        # Initialize user and item factors with random values
-        self.user_factors = np.random.normal(0, 0.1, (n_users, self.n_factors))
-        self.item_factors = np.random.normal(0, 0.1, (n_items, self.n_factors))
+        # Initialize factors randomly
+        if self.user_factors is None or self.item_factors is None:
+            self.user_factors = np.random.normal(0, 0.1, (n_users, self.n_factors))
+            self.item_factors = np.random.normal(0, 0.1, (n_items, self.n_factors))
+        
+        # Store movie IDs for later use
+        self.movie_ids = movie_ids
         
         # Training loop
         for epoch in range(self.n_epochs):
             for u in range(n_users):
                 for i in range(n_items):
-                    if ratings_matrix[u, i] > 0:
-                        # Calculate prediction error
+                    if ratings_matrix[u, i] > 0:  # Only train on observed ratings
+                        # Compute prediction and error
                         prediction = np.dot(self.user_factors[u], self.item_factors[i])
                         error = ratings_matrix[u, i] - prediction
                         
                         # Update factors
-                        self.user_factors[u] += self.learning_rate * (
-                            error * self.item_factors[i] - 
-                            self.regularization * self.user_factors[u]
-                        )
-                        self.item_factors[i] += self.learning_rate * (
-                            error * self.user_factors[u] - 
-                            self.regularization * self.item_factors[i]
-                        )
-    
+                        self.user_factors[u] += self.learning_rate * (error * self.item_factors[i] - self.regularization * self.user_factors[u])
+                        self.item_factors[i] += self.learning_rate * (error * self.user_factors[u] - self.regularization * self.item_factors[i])
+
+    def recommend(self, user_id: int, n_recommendations: int = 5) -> List[Tuple[int, float]]:
+        """Generate movie recommendations for a user"""
+        if self.user_factors is None or self.item_factors is None:
+            return []
+        
+        try:
+            # Get all predicted ratings for the user
+            user_ratings = np.dot(self.user_factors[user_id], self.item_factors.T)
+            
+            # Create a list of (movie_index, predicted_rating) tuples
+            movie_ratings = [(i, rating) for i, rating in enumerate(user_ratings)]
+            
+            # Sort by predicted rating in descending order
+            movie_ratings.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return top N recommendations
+            return movie_ratings[:n_recommendations]
+            
+        except Exception as e:
+            print(f"Error generating recommendations: {e}")
+            return []
+
     def predict(self, user_id: int, item_id: int) -> float:
-        """
-        Predict rating for a user-item pair.
-        
-        Args:
-            user_id (int): User ID
-            item_id (int): Item ID
-            
-        Returns:
-            float: Predicted rating
-        """
+        """Predict rating for a specific user-item pair"""
         if self.user_factors is None or self.item_factors is None:
-            raise ValueError("Model not trained. Call fit() first.")
-            
-        # Find the index of the movie in our matrix
-        item_idx = np.where(self.movie_ids == item_id)[0]
-        if len(item_idx) == 0:
-            raise ValueError(f"Movie ID {item_id} not found in training data")
-            
-        return np.dot(self.user_factors[user_id], self.item_factors[item_idx[0]])
-    
-    def recommend(self, user_id: int, n_recommendations: int = 10) -> List[Tuple[int, float]]:
-        """
-        Generate movie recommendations for a user.
+            return 0.0
         
-        Args:
-            user_id (int): User ID
-            n_recommendations (int): Number of recommendations to generate
-            
-        Returns:
-            List of tuples containing (movie_id, predicted_rating)
-        """
-        if self.user_factors is None or self.item_factors is None:
-            raise ValueError("Model not trained. Call fit() first.")
-            
-        # Calculate predicted ratings for all movies
-        user_vector = self.user_factors[user_id]
-        predicted_ratings = np.dot(self.item_factors, user_vector)
-        
-        # Get top n recommendations
-        top_indices = np.argsort(predicted_ratings)[-n_recommendations:][::-1]
-        recommendations = [
-            (self.movie_ids[idx], predicted_ratings[idx]) 
-            for idx in top_indices
-        ]
-        
-        return recommendations 
+        try:
+            prediction = np.dot(self.user_factors[user_id], self.item_factors[item_id])
+            return max(0.5, min(5.0, prediction))  # Clip prediction between 0.5 and 5.0
+        except Exception as e:
+            print(f"Error predicting rating: {e}")
+            return 0.0 

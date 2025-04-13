@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environment
 venv/
+env/
 ENV/
 
 # IDE
@@ -30,14 +31,26 @@ ENV/
 *.swp
 *.swo
 
-# Project specific
-data/ml-latest-small/
+# Database
 *.db
 *.sqlite3
+
+# Environment variables
+.env
 
 # Logs
 *.log
 
-# OS
+# Cache
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local development settings
+instance/
+.webassets-cache
+
+# System Files
 .DS_Store
 Thumbs.db 
